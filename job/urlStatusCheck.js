@@ -34,23 +34,28 @@ module.exports = function(job, done) {
 function checkMonitorStatus(token, monitor, isConfirmingStatus, job, done) {
     log.info("Url status check: Head requesting monitor url " + monitor.url);
     request({ method: 'HEAD', uri: monitor.url, time: true, timeout: 8000 }, function(err, res) {
-        if (err) {
+        if (err && err.code != "ENOTFOUND") {
             job.fail(err);
             job.save();
             log.error(err);
             return done();
         }
 
-        var currentStatus = res.statusCode < 400 ? "Up" : "Down";
+        var currentStatus;
+        if(res) {
+            currentStatus = res.statusCode < 400 ? "Up" : "Down";
+        } else {
+            currentStatus = "Invalid";
+        }
 
-        log.info("Url status check: Head request complete, monitor status " + monitor.status);
+        log.info("Url status check: Head request complete. Previous monitor status: " + monitor.status + ". Current monitor status: " + currentStatus);
 
         var monitorEvent = new model.MonitorEvent({
             confirmed: isConfirmingStatus,
             monitor: monitor._id,
-            responseTime: res.elapsedTime,
+            responseTime: res ? res.elapsedTime : 0,
             status: currentStatus,
-            statusCode: res.statusCode,
+            statusCode: res ? res.statusCode : 400,
             user: monitor.user
         });
 
